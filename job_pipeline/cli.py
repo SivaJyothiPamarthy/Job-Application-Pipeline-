@@ -106,14 +106,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     run = sub.add_parser("run", help="Run the full pipeline (Scout->Filter->Factory->Submission).")
     add_profile(run)
-    run.add_argument("--source", default="sample", help="sample | platsbanken | apify")
+    run.add_argument("--source", default="sample", help="sample | platsbanken | apify | websearch")
     run.add_argument("--target", type=int, default=config.SCOUT_TARGET, help="Jobs to scout.")
     run.add_argument("--top", type=int, default=config.FILTER_TOP_N, help="Shortlist size.")
     run.set_defaults(func=_cmd_run)
 
     sc = sub.add_parser("scout", help="Just fetch and list jobs.")
     add_profile(sc)
-    sc.add_argument("--source", default="sample", help="sample | platsbanken | apify")
+    sc.add_argument("--source", default="sample", help="sample | platsbanken | apify | websearch")
     sc.add_argument("--target", type=int, default=config.SCOUT_TARGET)
     sc.set_defaults(func=_cmd_scout)
 

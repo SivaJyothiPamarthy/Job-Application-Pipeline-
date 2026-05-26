@@ -34,6 +34,9 @@ already in hand), and deliberately avoids the brittle/risky parts of the origina
   scraping platform with a real API and marketplace Actors (e.g. a LinkedIn Jobs scraper),
   so you get LinkedIn listings without DIY scraping or login automation. Needs
   `APIFY_API_TOKEN`; the Actor and its input are configurable (see below).
+- **Free web-search source** (`--source websearch`): uses Claude's server-side web search
+  to find real, recent postings (LinkedIn-indexed, TheHub, company pages) and extract them
+  into structured records. No extra key; best-effort coverage — verify the URLs.
 - **Filter is English- and PR-aware:** it never penalizes a job for lacking visa
   sponsorship, and flags (rather than auto-passes) roles that require fluent Swedish.
 - **Submission does not auto-submit.** Most Swedish applications go through ATS platforms
