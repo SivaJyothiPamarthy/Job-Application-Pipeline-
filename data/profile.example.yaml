@@ -1,0 +1,57 @@
+# Your profile drives the whole pipeline. Copy this to data/profile.yaml and edit.
+name: Your Name
+location: Stockholm, Sweden
+
+preferences:
+  target_titles:
+    - Backend Engineer
+    - Software Engineer
+    - Platform Engineer
+  keywords:
+    - Python
+    - distributed systems
+    - cloud
+  locations:
+    - Stockholm
+    - Remote (Sweden)
+  min_salary_sek: 55000          # gross per month
+  employment_type: Permanent
+  remote: false                  # set true to bias toward remote roles
+  languages:
+    - English
+  work_authorization: Permanent resident (no sponsorship needed)
+  exclude:
+    - unpaid internship
+    - roles requiring fluent Swedish
+  notes: Open to hybrid in central Stockholm. Working language English.
+  # Optional: override the JobTech municipality concept id (default is Stockholm).
+  # municipality_concept_id: AvNB_uwa_6n6
+
+# Paste your real resume here as Markdown. Keep it truthful — the agents only
+# reorder and reword what's here; they never invent experience.
+resume_markdown: |
+  # Your Name
+  Stockholm, Sweden · you@example.com · linkedin.com/in/you · github.com/you
+
+  ## Summary
+  Backend engineer with 6 years building scalable services in Python and Go.
+  Comfortable across the stack: APIs, data pipelines, cloud infrastructure.
+
+  ## Experience
+  ### Senior Backend Engineer — Example AB (2022–present)
+  - Designed and shipped microservices handling 5k req/s on AWS + Kubernetes.
+  - Cut p99 latency 40% by redesigning the caching layer.
+  - Mentored 3 junior engineers.
+
+  ### Backend Engineer — Another Company (2019–2022)
+  - Built REST/gRPC services in Python (FastAPI) backed by PostgreSQL and Kafka.
+  - Owned CI/CD and observability (Prometheus, Grafana).
+
+  ## Skills
+  Python, Go, PostgreSQL, Kafka, Docker, Kubernetes, AWS, GCP, Terraform
+
+  ## Education
+  M.Sc. Computer Science — KTH Royal Institute of Technology (2019)
+
+  ## Languages
+  English (fluent), Swedish (basic)
