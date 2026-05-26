@@ -30,6 +30,10 @@ already in hand), and deliberately avoids the brittle/risky parts of the origina
   Sweden's official, free, public job-search API — instead of scraping LinkedIn/Indeed
   (which is against their terms and gets blocked). A bundled sample dataset lets the whole
   pipeline run offline with no API access.
+- **LinkedIn coverage via [Apify](https://apify.com)** (`--source apify`): a managed
+  scraping platform with a real API and marketplace Actors (e.g. a LinkedIn Jobs scraper),
+  so you get LinkedIn listings without DIY scraping or login automation. Needs
+  `APIFY_API_TOKEN`; the Actor and its input are configurable (see below).
 - **Filter is English- and PR-aware:** it never penalizes a job for lacking visa
   sponsorship, and flags (rather than auto-passes) roles that require fluent Swedish.
 - **Submission does not auto-submit.** Most Swedish applications go through ATS platforms
@@ -53,6 +57,9 @@ python -m job_pipeline.cli run --profile data/profile.yaml --source sample
 
 # Against live Stockholm jobs from Platsbanken:
 python -m job_pipeline.cli run --profile data/profile.yaml --source platsbanken
+
+# Against LinkedIn (and other boards) via Apify — needs APIFY_API_TOKEN:
+python -m job_pipeline.cli run --profile data/profile.yaml --source apify
 
 # Just see what Scout finds:
 python -m job_pipeline.cli scout --profile data/profile.yaml --source platsbanken
@@ -81,6 +88,13 @@ Environment variables (all optional):
 | `FILTER_TOP_N` | `10` | Shortlist size. |
 | `FACTORY_CONCURRENCY` | `4` | Parallel application builds. |
 | `PIPELINE_OUT_DIR` | `out` | Where packages are written. |
+| `APIFY_API_TOKEN` | — | Required for `--source apify`. |
+| `APIFY_ACTOR` | `bebity~linkedin-jobs-scraper` | Which Apify Actor to run. |
+
+Apify Actors differ in their input/output schemas. The source maps common field names
+automatically, but if you pick a different Actor you can override its input via
+`preferences.apify_input` in your profile YAML (a dict merged into the Actor input) and
+set `preferences.apify_actor` (or `APIFY_ACTOR`).
 
 ## How it's built
 
