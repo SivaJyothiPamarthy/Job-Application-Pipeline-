@@ -48,9 +48,20 @@ already in hand), and deliberately avoids the brittle/risky parts of the origina
 
 ```bash
 pip install -r requirements.txt
-export ANTHROPIC_API_KEY=sk-ant-...        # see .env.example
 cp data/profile.example.yaml data/profile.yaml   # then edit with your real resume
+
+# Pick ONE LLM provider (see .env.example):
+export OPENAI_API_KEY=sk-...            # uses OpenAI automatically
+# or
+export ANTHROPIC_API_KEY=sk-ant-...     # uses Anthropic
 ```
+
+**LLM provider:** the pipeline works with either OpenAI or Anthropic. If
+`OPENAI_API_KEY` is set it uses OpenAI (default model `gpt-4o`); otherwise it uses
+Anthropic (default `claude-opus-4-7`). Force a choice with `LLM_PROVIDER=openai|anthropic`
+and pick a model with `OPENAI_MODEL` / `ANTHROPIC_MODEL`. Note: live company research in
+the Interview Coach uses web search on Anthropic only; on OpenAI that step falls back to
+the model's own knowledge.
 
 ## Usage
 

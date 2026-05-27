@@ -2,11 +2,22 @@
 
 import os
 
-# Default to the most capable model. Override with ANTHROPIC_MODEL=claude-sonnet-4-6
-# if you want to trade some quality for lower cost/latency on the parallel factory.
-MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-7")
+# Which LLM backend to use. Defaults to OpenAI if OPENAI_API_KEY is set (and no
+# explicit choice), else Anthropic. Override with LLM_PROVIDER=openai|anthropic.
+PROVIDER = os.environ.get(
+    "LLM_PROVIDER",
+    "openai" if os.environ.get("OPENAI_API_KEY") else "anthropic",
+).lower()
 
-# Effort for reasoning-sensitive calls (filter scoring, critic).
+# Default model per provider. Override with ANTHROPIC_MODEL / OPENAI_MODEL.
+if PROVIDER == "openai":
+    MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o")
+else:
+    # Default to the most capable Claude model. Set ANTHROPIC_MODEL=claude-sonnet-4-6
+    # to trade some quality for lower cost/latency on the parallel factory.
+    MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-7")
+
+# Effort for reasoning-sensitive calls (Anthropic only; ignored on OpenAI chat models).
 EFFORT_HIGH = os.environ.get("ANTHROPIC_EFFORT", "high")
 # Effort for bulk generation (resume/cover-letter drafting) — cheaper.
 EFFORT_GEN = "medium"
