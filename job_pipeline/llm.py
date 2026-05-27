@@ -1,17 +1,16 @@
-"""LLM wrapper supporting two backends: OpenAI or Anthropic.
+"""LLM wrapper supporting three backends: OpenAI, Anthropic, or local Ollama.
 
-The backend is chosen in config.PROVIDER (auto: OpenAI if OPENAI_API_KEY is set,
-else Anthropic; override with LLM_PROVIDER). The five agents only ever call the
-public helpers below, so switching providers needs no agent changes.
-
-Helpers: text + JSON-schema-constrained completions, sync and async, plus a
-best-effort web-search-backed text completion (Anthropic only; OpenAI falls back
-to a plain completion).
+The backend is chosen in config.PROVIDER (explicit LLM_PROVIDER, else auto:
+OpenAI if OPENAI_API_KEY, else Anthropic if ANTHROPIC_API_KEY, else local Ollama).
+OpenAI and Ollama share the OpenAI chat-completions API path; Ollama just points
+the client at localhost. The five agents only call the public helpers below, so
+switching providers needs no agent changes.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from functools import lru_cache
 from typing import Any
 
@@ -24,8 +23,8 @@ def system_blocks(profile_context: str, instruction: str) -> list[dict[str, Any]
     """Build a system prompt: stable profile prefix + per-agent instruction.
 
     On Anthropic the profile block carries a cache_control breakpoint so it's
-    prompt-cached across the run. On OpenAI the blocks are flattened to a string
-    (OpenAI caches long prompt prefixes automatically).
+    prompt-cached across the run. On OpenAI/Ollama the blocks are flattened to a
+    string (OpenAI caches long prefixes automatically; Ollama is local).
     """
     return [
         {"type": "text", "text": profile_context, "cache_control": {"type": "ephemeral"}},
@@ -57,34 +56,53 @@ def _anthropic_text(resp) -> str:
     return "".join(b.text for b in resp.content if b.type == "text").strip()
 
 
-# --- OpenAI clients ---------------------------------------------------------
+# --- OpenAI-compatible clients (OpenAI + Ollama) ----------------------------
 
 @lru_cache(maxsize=1)
-def _openai_sync():
+def _compat_sync():
     from openai import OpenAI
 
+    if config.PROVIDER == "ollama":
+        return OpenAI(base_url=config.OLLAMA_BASE_URL, api_key="ollama")
     return OpenAI()
 
 
 @lru_cache(maxsize=1)
-def _openai_async():
+def _compat_async():
     from openai import AsyncOpenAI
 
+    if config.PROVIDER == "ollama":
+        return AsyncOpenAI(base_url=config.OLLAMA_BASE_URL, api_key="ollama")
     return AsyncOpenAI()
 
 
-def _openai_messages(system: list[dict[str, Any]], user: str) -> list[dict[str, str]]:
+def _compat_messages(system: list[dict[str, Any]], user: str) -> list[dict[str, str]]:
     return [
         {"role": "system", "content": _flatten(system)},
         {"role": "user", "content": user},
     ]
 
 
-def _openai_response_format(schema: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "type": "json_schema",
-        "json_schema": {"name": "result", "schema": schema, "strict": True},
-    }
+def _response_format(schema: dict[str, Any]) -> dict[str, Any]:
+    js: dict[str, Any] = {"name": "result", "schema": schema}
+    if config.PROVIDER == "openai":  # OpenAI supports strict; Ollama may not
+        js["strict"] = True
+    return {"type": "json_schema", "json_schema": js}
+
+
+def _loads_lenient(text: str) -> Any:
+    """Parse JSON that may be wrapped in code fences or surrounded by prose."""
+    text = (text or "").strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-zA-Z]*\s*", "", text)
+        text = re.sub(r"\s*```$", "", text).strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        i, j = text.find("{"), text.rfind("}")
+        if i != -1 and j != -1 and j > i:
+            return json.loads(text[i : j + 1])
+        raise
 
 
 # --- public: text completion ------------------------------------------------
@@ -96,11 +114,11 @@ def complete_text(
     effort: str = config.EFFORT_GEN,
     max_tokens: int = 8000,
 ) -> str:
-    if config.PROVIDER == "openai":
-        resp = _openai_sync().chat.completions.create(
+    if config.OPENAI_COMPATIBLE:
+        resp = _compat_sync().chat.completions.create(
             model=config.MODEL,
             max_tokens=max_tokens,
-            messages=_openai_messages(system, user),
+            messages=_compat_messages(system, user),
         )
         return (resp.choices[0].message.content or "").strip()
 
@@ -122,11 +140,11 @@ async def acomplete_text(
     effort: str = config.EFFORT_GEN,
     max_tokens: int = 8000,
 ) -> str:
-    if config.PROVIDER == "openai":
-        resp = await _openai_async().chat.completions.create(
+    if config.OPENAI_COMPATIBLE:
+        resp = await _compat_async().chat.completions.create(
             model=config.MODEL,
             max_tokens=max_tokens,
-            messages=_openai_messages(system, user),
+            messages=_compat_messages(system, user),
         )
         return (resp.choices[0].message.content or "").strip()
 
@@ -143,6 +161,13 @@ async def acomplete_text(
 
 # --- public: JSON-schema-constrained completion -----------------------------
 
+def _json_instruction(user: str, schema: dict[str, Any]) -> str:
+    return (
+        f"{user}\n\nRespond with ONLY a single valid JSON object matching this schema "
+        f"(no prose, no markdown, no code fences):\n{json.dumps(schema)}"
+    )
+
+
 def complete_json(
     system: list[dict[str, Any]],
     user: str,
@@ -151,14 +176,26 @@ def complete_json(
     effort: str = config.EFFORT_HIGH,
     max_tokens: int = 8000,
 ) -> Any:
-    if config.PROVIDER == "openai":
-        resp = _openai_sync().chat.completions.create(
-            model=config.MODEL,
-            max_tokens=max_tokens,
-            messages=_openai_messages(system, user),
-            response_format=_openai_response_format(schema),
-        )
-        return json.loads(resp.choices[0].message.content)
+    if config.OPENAI_COMPATIBLE:
+        client = _compat_sync()
+        try:
+            resp = client.chat.completions.create(
+                model=config.MODEL,
+                max_tokens=max_tokens,
+                messages=_compat_messages(system, user),
+                response_format=_response_format(schema),
+            )
+            return _loads_lenient(resp.choices[0].message.content)
+        except Exception:
+            if config.PROVIDER != "ollama":
+                raise
+            # Local model may not support response_format — instruct JSON in-prompt.
+            resp = client.chat.completions.create(
+                model=config.MODEL,
+                max_tokens=max_tokens,
+                messages=_compat_messages(system, _json_instruction(user, schema)),
+            )
+            return _loads_lenient(resp.choices[0].message.content)
 
     resp = _anthropic_sync().messages.create(
         model=config.MODEL,
@@ -178,14 +215,25 @@ async def acomplete_json(
     effort: str = config.EFFORT_HIGH,
     max_tokens: int = 8000,
 ) -> Any:
-    if config.PROVIDER == "openai":
-        resp = await _openai_async().chat.completions.create(
-            model=config.MODEL,
-            max_tokens=max_tokens,
-            messages=_openai_messages(system, user),
-            response_format=_openai_response_format(schema),
-        )
-        return json.loads(resp.choices[0].message.content)
+    if config.OPENAI_COMPATIBLE:
+        client = _compat_async()
+        try:
+            resp = await client.chat.completions.create(
+                model=config.MODEL,
+                max_tokens=max_tokens,
+                messages=_compat_messages(system, user),
+                response_format=_response_format(schema),
+            )
+            return _loads_lenient(resp.choices[0].message.content)
+        except Exception:
+            if config.PROVIDER != "ollama":
+                raise
+            resp = await client.chat.completions.create(
+                model=config.MODEL,
+                max_tokens=max_tokens,
+                messages=_compat_messages(system, _json_instruction(user, schema)),
+            )
+            return _loads_lenient(resp.choices[0].message.content)
 
     resp = await _anthropic_async().messages.create(
         model=config.MODEL,
@@ -208,10 +256,10 @@ def complete_text_with_websearch(
     """Text completion that may use live web search.
 
     Anthropic: uses the server-side web_search tool, falling back to a plain
-    completion if unavailable. OpenAI: no web search here — falls back to a plain
-    completion (the coach then relies on model knowledge).
+    completion if unavailable. OpenAI/Ollama: no web search — falls back to a
+    plain completion (the coach then relies on the model's own knowledge).
     """
-    if config.PROVIDER == "openai":
+    if config.OPENAI_COMPATIBLE:
         return complete_text(system, user, effort=config.EFFORT_HIGH, max_tokens=max_tokens)
 
     import anthropic

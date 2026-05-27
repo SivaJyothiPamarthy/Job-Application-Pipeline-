@@ -2,22 +2,33 @@
 
 import os
 
-# Which LLM backend to use. Defaults to OpenAI if OPENAI_API_KEY is set (and no
-# explicit choice), else Anthropic. Override with LLM_PROVIDER=openai|anthropic.
-PROVIDER = os.environ.get(
-    "LLM_PROVIDER",
-    "openai" if os.environ.get("OPENAI_API_KEY") else "anthropic",
+# Which LLM backend to use. Explicit LLM_PROVIDER wins; otherwise auto-detect:
+# OpenAI if OPENAI_API_KEY is set, else Anthropic if ANTHROPIC_API_KEY is set,
+# else local Ollama (no key, no cost). Values: openai | anthropic | ollama.
+PROVIDER = (
+    os.environ.get("LLM_PROVIDER")
+    or ("openai" if os.environ.get("OPENAI_API_KEY") else None)
+    or ("anthropic" if os.environ.get("ANTHROPIC_API_KEY") else None)
+    or "ollama"
 ).lower()
 
-# Default model per provider. Override with ANTHROPIC_MODEL / OPENAI_MODEL.
+# Local Ollama OpenAI-compatible endpoint.
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+
+# Default model per provider. Override with the matching *_MODEL env var.
 if PROVIDER == "openai":
     MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o")
+elif PROVIDER == "ollama":
+    MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1")
 else:
     # Default to the most capable Claude model. Set ANTHROPIC_MODEL=claude-sonnet-4-6
     # to trade some quality for lower cost/latency on the parallel factory.
     MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-7")
 
-# Effort for reasoning-sensitive calls (Anthropic only; ignored on OpenAI chat models).
+# True for backends that speak the OpenAI chat-completions API (OpenAI + Ollama).
+OPENAI_COMPATIBLE = PROVIDER in ("openai", "ollama")
+
+# Effort for reasoning-sensitive calls (Anthropic only; ignored elsewhere).
 EFFORT_HIGH = os.environ.get("ANTHROPIC_EFFORT", "high")
 # Effort for bulk generation (resume/cover-letter drafting) — cheaper.
 EFFORT_GEN = "medium"

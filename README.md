@@ -50,18 +50,26 @@ already in hand), and deliberately avoids the brittle/risky parts of the origina
 pip install -r requirements.txt
 cp data/profile.example.yaml data/profile.yaml   # then edit with your real resume
 
-# Pick ONE LLM provider (see .env.example):
-export OPENAI_API_KEY=sk-...            # uses OpenAI automatically
+# Pick an LLM provider (see .env.example):
+export LLM_PROVIDER=ollama OLLAMA_MODEL=llama3.1   # free, local — no key
 # or
-export ANTHROPIC_API_KEY=sk-ant-...     # uses Anthropic
+export OPENAI_API_KEY=sk-...                       # OpenAI
+# or
+export ANTHROPIC_API_KEY=sk-ant-...                # Anthropic
 ```
 
-**LLM provider:** the pipeline works with either OpenAI or Anthropic. If
-`OPENAI_API_KEY` is set it uses OpenAI (default model `gpt-4o`); otherwise it uses
-Anthropic (default `claude-opus-4-7`). Force a choice with `LLM_PROVIDER=openai|anthropic`
-and pick a model with `OPENAI_MODEL` / `ANTHROPIC_MODEL`. Note: live company research in
-the Interview Coach uses web search on Anthropic only; on OpenAI that step falls back to
-the model's own knowledge.
+**LLM provider — OpenAI, Anthropic, or local Ollama (free).** Auto-detected:
+OpenAI if `OPENAI_API_KEY` is set, else Anthropic if `ANTHROPIC_API_KEY` is set, else
+local **Ollama** (no key, no cost). Force with `LLM_PROVIDER=ollama|openai|anthropic` and
+pick a model with `OLLAMA_MODEL` / `OPENAI_MODEL` / `ANTHROPIC_MODEL`.
+
+- **Ollama** runs models on your machine — install from [ollama.com](https://ollama.com),
+  then `ollama pull llama3.1` and make sure `ollama serve` is running. Zero API cost, fully
+  private. Tradeoff: local models are weaker than the cloud ones, so the tailored résumés/
+  cover letters and JSON scoring are lower quality; use a capable model (e.g. `llama3.1`,
+  `qwen2.5:14b`) and consider a smaller `--target` to keep the filter prompt manageable.
+- **Interview Coach web search** runs on Anthropic only; on OpenAI/Ollama that step falls
+  back to the model's own knowledge.
 
 ## Usage
 
