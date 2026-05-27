@@ -37,6 +37,10 @@ EFFORT_GEN = "medium"
 SCOUT_TARGET = int(os.environ.get("SCOUT_TARGET", "50"))
 FILTER_TOP_N = int(os.environ.get("FILTER_TOP_N", "10"))
 
+# Filter scores jobs in batches of this size (smaller = faster/steadier on local
+# models). Default smaller for Ollama since local generation is slow.
+FILTER_BATCH = int(os.environ.get("FILTER_BATCH", "6" if PROVIDER == "ollama" else "25"))
+
 # Max concurrent jobs in the Application Factory (respects API rate limits).
 FACTORY_CONCURRENCY = int(os.environ.get("FACTORY_CONCURRENCY", "4"))
 

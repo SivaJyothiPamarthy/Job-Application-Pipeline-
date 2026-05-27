@@ -6,7 +6,7 @@ and shortlists the strongest. Done in a single structured-output call for cost.
 
 from __future__ import annotations
 
-from .. import llm
+from .. import config, llm
 from ..models import Job, ScoredJob
 from ..profile import Profile
 
@@ -81,22 +81,38 @@ def _render_jobs(jobs: list[Job]) -> str:
     return "\n".join(parts)
 
 
+def _score_batch(system, batch: list[Job]) -> list[dict]:
+    user = (
+        f"Score these {len(batch)} jobs and return the rankings array. "
+        f"Every job id must appear exactly once.\n\n" + _render_jobs(batch)
+    )
+    result = llm.complete_json(system, user, _SCHEMA, max_tokens=8000)
+    return result.get("rankings", [])
+
+
 def filter_jobs(profile: Profile, jobs: list[Job], top_n: int) -> list[ScoredJob]:
     if not jobs:
         return []
 
     system = llm.system_blocks(profile.to_context(), _INSTRUCTION)
-    user = (
-        f"Score these {len(jobs)} jobs and return the rankings array. "
-        f"Every job id must appear exactly once.\n\n" + _render_jobs(jobs)
-    )
-    # Generous token budget — one row per job.
-    result = llm.complete_json(system, user, _SCHEMA, max_tokens=8000)
-
     by_id = {j.id: j for j in jobs}
+    batch_size = max(1, config.FILTER_BATCH)
+    rankings: list[dict] = []
+
+    # Score in batches so progress is visible and per-call latency stays low
+    # (important for local models). Batches still get ranked together at the end.
+    for start in range(0, len(jobs), batch_size):
+        batch = jobs[start : start + batch_size]
+        done = min(start + len(batch), len(jobs))
+        print(f"    scoring {done}/{len(jobs)}…", flush=True)
+        try:
+            rankings.extend(_score_batch(system, batch))
+        except Exception as e:  # one bad batch shouldn't sink the whole run
+            print(f"    ⚠ batch {start//batch_size + 1} failed ({e}); skipping", flush=True)
+
     scored: list[ScoredJob] = []
-    for r in result.get("rankings", []):
-        job = by_id.get(r["id"])
+    for r in rankings:
+        job = by_id.get(r.get("id"))
         if not job:
             continue
         scored.append(

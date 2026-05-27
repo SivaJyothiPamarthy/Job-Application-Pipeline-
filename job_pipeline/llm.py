@@ -178,24 +178,21 @@ def complete_json(
 ) -> Any:
     if config.OPENAI_COMPATIBLE:
         client = _compat_sync()
-        try:
-            resp = client.chat.completions.create(
-                model=config.MODEL,
-                max_tokens=max_tokens,
-                messages=_compat_messages(system, user),
-                response_format=_response_format(schema),
-            )
-            return _loads_lenient(resp.choices[0].message.content)
-        except Exception:
-            if config.PROVIDER != "ollama":
-                raise
-            # Local model may not support response_format — instruct JSON in-prompt.
+        if config.PROVIDER == "ollama":
+            # Grammar-constrained decoding is slow locally — instruct JSON instead.
             resp = client.chat.completions.create(
                 model=config.MODEL,
                 max_tokens=max_tokens,
                 messages=_compat_messages(system, _json_instruction(user, schema)),
             )
             return _loads_lenient(resp.choices[0].message.content)
+        resp = client.chat.completions.create(
+            model=config.MODEL,
+            max_tokens=max_tokens,
+            messages=_compat_messages(system, user),
+            response_format=_response_format(schema),
+        )
+        return _loads_lenient(resp.choices[0].message.content)
 
     resp = _anthropic_sync().messages.create(
         model=config.MODEL,
@@ -217,23 +214,20 @@ async def acomplete_json(
 ) -> Any:
     if config.OPENAI_COMPATIBLE:
         client = _compat_async()
-        try:
-            resp = await client.chat.completions.create(
-                model=config.MODEL,
-                max_tokens=max_tokens,
-                messages=_compat_messages(system, user),
-                response_format=_response_format(schema),
-            )
-            return _loads_lenient(resp.choices[0].message.content)
-        except Exception:
-            if config.PROVIDER != "ollama":
-                raise
+        if config.PROVIDER == "ollama":
             resp = await client.chat.completions.create(
                 model=config.MODEL,
                 max_tokens=max_tokens,
                 messages=_compat_messages(system, _json_instruction(user, schema)),
             )
             return _loads_lenient(resp.choices[0].message.content)
+        resp = await client.chat.completions.create(
+            model=config.MODEL,
+            max_tokens=max_tokens,
+            messages=_compat_messages(system, user),
+            response_format=_response_format(schema),
+        )
+        return _loads_lenient(resp.choices[0].message.content)
 
     resp = await _anthropic_async().messages.create(
         model=config.MODEL,
