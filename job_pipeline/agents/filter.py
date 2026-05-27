@@ -86,7 +86,8 @@ def _score_batch(system, batch: list[Job]) -> list[dict]:
         f"Score these {len(batch)} jobs and return the rankings array. "
         f"Every job id must appear exactly once.\n\n" + _render_jobs(batch)
     )
-    result = llm.complete_json(system, user, _SCHEMA, max_tokens=8000)
+    # Small batch → modest output; keeps local generation short and bounded.
+    result = llm.complete_json(system, user, _SCHEMA, max_tokens=3000)
     return result.get("rankings", [])
 
 

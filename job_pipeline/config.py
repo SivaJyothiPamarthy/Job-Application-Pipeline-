@@ -39,7 +39,11 @@ FILTER_TOP_N = int(os.environ.get("FILTER_TOP_N", "10"))
 
 # Filter scores jobs in batches of this size (smaller = faster/steadier on local
 # models). Default smaller for Ollama since local generation is slow.
-FILTER_BATCH = int(os.environ.get("FILTER_BATCH", "6" if PROVIDER == "ollama" else "25"))
+FILTER_BATCH = int(os.environ.get("FILTER_BATCH", "4" if PROVIDER == "ollama" else "25"))
+
+# Per-request timeout (seconds) for OpenAI/Ollama calls, so a stuck or runaway
+# local generation can't hang the run — it errors and the step moves on.
+LLM_TIMEOUT = float(os.environ.get("LLM_TIMEOUT", "180"))
 
 # Max concurrent jobs in the Application Factory (respects API rate limits).
 FACTORY_CONCURRENCY = int(os.environ.get("FACTORY_CONCURRENCY", "4"))

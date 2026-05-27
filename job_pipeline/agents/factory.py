@@ -126,7 +126,15 @@ async def _build_one(profile: Profile, scored: ScoredJob, sem: asyncio.Semaphore
 async def _run(profile: Profile, shortlist: list[ScoredJob]) -> list[ApplicationPackage]:
     sem = asyncio.Semaphore(config.FACTORY_CONCURRENCY)
     tasks = [_build_one(profile, s, sem) for s in shortlist]
-    return await asyncio.gather(*tasks)
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    packages: list[ApplicationPackage] = []
+    for scored, res in zip(shortlist, results):
+        if isinstance(res, Exception):
+            print(f"    ⚠ {scored.job.company}: package failed ({res}); skipping", flush=True)
+            continue
+        packages.append(res)
+    return packages
 
 
 def build_packages(profile: Profile, shortlist: list[ScoredJob]) -> list[ApplicationPackage]:

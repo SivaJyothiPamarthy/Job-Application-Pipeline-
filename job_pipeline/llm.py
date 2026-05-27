@@ -63,8 +63,8 @@ def _compat_sync():
     from openai import OpenAI
 
     if config.PROVIDER == "ollama":
-        return OpenAI(base_url=config.OLLAMA_BASE_URL, api_key="ollama")
-    return OpenAI()
+        return OpenAI(base_url=config.OLLAMA_BASE_URL, api_key="ollama", timeout=config.LLM_TIMEOUT)
+    return OpenAI(timeout=config.LLM_TIMEOUT)
 
 
 @lru_cache(maxsize=1)
@@ -72,8 +72,8 @@ def _compat_async():
     from openai import AsyncOpenAI
 
     if config.PROVIDER == "ollama":
-        return AsyncOpenAI(base_url=config.OLLAMA_BASE_URL, api_key="ollama")
-    return AsyncOpenAI()
+        return AsyncOpenAI(base_url=config.OLLAMA_BASE_URL, api_key="ollama", timeout=config.LLM_TIMEOUT)
+    return AsyncOpenAI(timeout=config.LLM_TIMEOUT)
 
 
 def _compat_messages(system: list[dict[str, Any]], user: str) -> list[dict[str, str]]:
