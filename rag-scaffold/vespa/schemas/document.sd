@@ -1,0 +1,82 @@
+# Vespa document schema.
+# Holds one CHUNK per document row (title/content), plus the permission field
+# `acl_groups` that every retrieval query MUST filter on.
+
+schema document {
+
+    document document {
+
+        field doc_id type string {
+            indexing: summary | attribute
+        }
+
+        # Human-facing source location for citations.
+        field url type string {
+            indexing: summary | attribute
+        }
+
+        field source type string {          # e.g. confluence, jira, drive
+            indexing: summary | attribute
+            attribute: fast-search
+        }
+
+        field lang type string {            # ISO code; useful for localized content
+            indexing: summary | attribute
+        }
+
+        field title type string {
+            indexing: summary | index
+            index: enable-bm25
+        }
+
+        field content type string {
+            indexing: summary | index
+            index: enable-bm25
+        }
+
+        # --- Permissions ---------------------------------------------------
+        # The set of groups allowed to see this chunk. Queries filter on the
+        # requesting user's groups so restricted docs never leak. fast-search
+        # makes the filter cheap.
+        field acl_groups type array<string> {
+            indexing: summary | attribute
+            attribute: fast-search
+        }
+
+        # --- Vector ---------------------------------------------------------
+        # BGE-M3 embedding. Dimension (1024) must match config.EMBED_DIM.
+        field embedding type tensor<float>(x[1024]) {
+            indexing: summary | attribute | index
+            attribute {
+                distance-metric: angular
+            }
+            index {
+                hnsw {
+                    max-links-per-node: 16
+                    neighbors-to-explore-at-insert: 200
+                }
+            }
+        }
+    }
+
+    fieldset default {
+        fields: title, content
+    }
+
+    # Pure keyword ranking (BM25 over title + content).
+    rank-profile bm25 {
+        first-phase {
+            expression: bm25(title) + bm25(content)
+        }
+    }
+
+    # Pure vector ranking (cosine similarity via angular closeness).
+    rank-profile semantic {
+        inputs {
+            query(q_embedding) tensor<float>(x[1024])
+        }
+        first-phase {
+            expression: closeness(field, embedding)
+        }
+    }
+}

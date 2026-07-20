@@ -1,0 +1,19 @@
+# Single-node Vespa for local development.
+# For production, run a multi-node Vespa content cluster instead.
+services:
+  vespa:
+    image: vespaengine/vespa:8
+    container_name: vespa-rag
+    ports:
+      - "8080:8080"     # query + feed API
+      - "19071:19071"   # config/deploy API
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:19071/state/v1/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - vespa-data:/opt/vespa/var
+
+volumes:
+  vespa-data:

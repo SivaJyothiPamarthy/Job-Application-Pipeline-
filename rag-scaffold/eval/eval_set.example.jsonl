@@ -1,0 +1,3 @@
+{"question": "How do I roll back a shader cache build?", "groups": ["eng", "all"], "relevant_doc_ids": ["shader-cache-runbook.md"]}
+{"question": "What is the localization string budget per UI screen?", "groups": ["loc", "all"], "relevant_doc_ids": ["loc-guidelines.md"]}
+{"question": "Who approves a hotfix to the live server?", "groups": ["eng", "ops", "all"], "relevant_doc_ids": ["release-process.md"]}
